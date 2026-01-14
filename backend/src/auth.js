@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+
+dotenv.config({ path: new URL('../../.env', import.meta.url) });
 
 const issuer = process.env.OIDC_ISSUER;
 const audience = process.env.OIDC_AUDIENCE;

@@ -7,9 +7,9 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   color: #e2e8f0;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 #root {
@@ -77,6 +77,8 @@ body {
   gap: 2rem;
   padding: 3rem;
   max-width: 500px;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
   width: 90%;
   animation: fadeInScale 0.8s ease-out forwards;
 }
