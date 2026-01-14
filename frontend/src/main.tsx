@@ -6,6 +6,8 @@ import "./index.css";
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+const redirectUri = import.meta.env.VITE_AUTH0_REDIRECT_URI || window.location.origin;
 
 // Validate Auth0 configuration
 if (!domain || !clientId) {
@@ -13,12 +15,17 @@ if (!domain || !clientId) {
   console.error("Required environment variables:");
   console.error("- VITE_AUTH0_DOMAIN");
   console.error("- VITE_AUTH0_CLIENT_ID");
+  console.error("- VITE_AUTH0_AUDIENCE");
   throw new Error("Auth0 domain and client ID must be set in .env file");
 }
 
 // Validate domain format
 if (!domain.includes('.auth0.com') && !domain.includes('.us.auth0.com') && !domain.includes('.eu.auth0.com') && !domain.includes('.au.auth0.com')) {
   console.warn("Auth0 domain format might be incorrect. Expected format: your-domain.auth0.com");
+}
+
+if (!audience) {
+  console.warn("Auth0 audience missing. API calls will fail without a configured audience.");
 }
 
 const rootElement = document.getElementById("root");
@@ -32,7 +39,9 @@ ReactDOM.createRoot(rootElement).render(
       domain={domain}
       clientId={clientId}
       authorizationParams={{
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
+        audience,
+        scope: 'openid profile email read:admin',
       }}
     >
       <App />

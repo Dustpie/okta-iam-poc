@@ -4,13 +4,22 @@ import LogoutButton from './LogoutButton';
 import Profile from './Profile';
 import { useEffect, useState } from 'react';
 
+type ApiResult = {
+  status: number;
+  body: unknown;
+};
+
 function App() {
-  const { isAuthenticated, isLoading, error } = useAuth0();
+  const { isAuthenticated, isLoading, error, getAccessTokenSilently } = useAuth0();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [meResult, setMeResult] = useState<ApiResult | null>(null);
+  const [adminResult, setAdminResult] = useState<ApiResult | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     if (!isLoading) {
-      setLoadingTimeout(false);
       return;
     }
 
@@ -20,6 +29,61 @@ function App() {
 
     return () => window.clearTimeout(timer);
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMeResult(null);
+      setAdminResult(null);
+      setApiError(null);
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setApiError('Missing VITE_API_BASE_URL; cannot call backend.');
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchApi = async () => {
+      setApiLoading(true);
+      setApiError(null);
+
+      try {
+        const token = await getAccessTokenSilently();
+        const headers = {
+          Authorization: `Bearer ${token}`,
+        };
+
+        const [meResponse, adminResponse] = await Promise.all([
+          fetch(`${apiBaseUrl}/me`, { headers }),
+          fetch(`${apiBaseUrl}/admin`, { headers }),
+        ]);
+
+        const meBody = await meResponse.json().catch(() => null);
+        const adminBody = await adminResponse.json().catch(() => null);
+
+        if (!cancelled) {
+          setMeResult({ status: meResponse.status, body: meBody });
+          setAdminResult({ status: adminResponse.status, body: adminBody });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setApiError(err instanceof Error ? err.message : 'Failed to call API');
+        }
+      } finally {
+        if (!cancelled) {
+          setApiLoading(false);
+        }
+      }
+    };
+
+    fetchApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, getAccessTokenSilently, isAuthenticated]);
 
   if (isLoading && !loadingTimeout) {
     return (
@@ -54,7 +118,7 @@ function App() {
             e.currentTarget.style.display = 'none';
           }}
         />
-        <h1 className="main-title">Welcome to Sample0</h1>
+        <h1 className="main-title">Okta IAM PoC (Auth0 SDK)</h1>
         
         {isAuthenticated ? (
           <div className="logged-in-section">
@@ -62,6 +126,37 @@ function App() {
             <h2 className="profile-section-title">Your Profile</h2>
             <div className="profile-card">
               <Profile />
+            </div>
+            <div
+              style={{
+                marginTop: '1.5rem',
+                width: '100%',
+                background: '#1f232b',
+                padding: '1rem',
+                borderRadius: '12px',
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>API Authorization Checks</h2>
+              {apiLoading && <div className="loading-text">Calling API...</div>}
+              {apiError && (
+                <div className="error-sub-message" style={{ marginBottom: '0.75rem' }}>
+                  {apiError}
+                </div>
+              )}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 600 }}>/me</div>
+                <div>Status: {meResult?.status ?? '—'}</div>
+                <pre style={{ whiteSpace: 'pre-wrap', marginTop: '0.5rem' }}>
+                  {meResult ? JSON.stringify(meResult.body, null, 2) : 'Not called'}
+                </pre>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600 }}>/admin</div>
+                <div>Status: {adminResult?.status ?? '—'}</div>
+                <pre style={{ whiteSpace: 'pre-wrap', marginTop: '0.5rem' }}>
+                  {adminResult ? JSON.stringify(adminResult.body, null, 2) : 'Not called'}
+                </pre>
+              </div>
             </div>
             <LogoutButton />
           </div>
